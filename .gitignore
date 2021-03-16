@@ -5,6 +5,9 @@
 *.so
 *.dylib
 
+# Main binary for *nix
+/tcp-delay-proxy
+
 # Test binary, built with `go test -c`
 *.test
 
@@ -12,4 +15,7 @@
 *.out
 
 # Dependency directories (remove the comment below to include it)
-# vendor/
+/vendor/
+
+# All things Intellij
+.idea/

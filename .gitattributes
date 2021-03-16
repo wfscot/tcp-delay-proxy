@@ -1,0 +1,7 @@
+* text=auto
+
+# anything fetched/modified by the go tools will have unix-style line endings, even on windows
+*.go eol=lf
+/go.mod text eol=lf
+/go.sum text eol=lf
+/vendor/** eol=lf
