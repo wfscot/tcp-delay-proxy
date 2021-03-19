@@ -37,6 +37,8 @@ func (p *simplePipe) Run(ctx context.Context) error {
 		return err
 	}
 
+	log.Info().Msg("pipe running")
+
 	// receive bytes in an infinite loop
 	for {
 		// use a select to allow for cancelling via context
@@ -78,7 +80,7 @@ func (p *simplePipe) Run(ctx context.Context) error {
 				if err == io.EOF {
 					// this is a normal close. exit the loop.
 					log.Info().Msg("connection closed by dest")
-					break
+					return nil
 				} else if err != nil {
 					log.Error().Err(err).Msg("error while writing to connection")
 					return err
