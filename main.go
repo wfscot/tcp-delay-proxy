@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -72,22 +73,44 @@ func handleConnection(log zerolog.Logger, clientConn net.Conn) {
 	downPipe := proxy.NewSimplePipe(upstreamConn, clientConn)
 	log.Debug().Msg("pipes established")
 
+	ctx := context.TODO()
+
+	// run the up and down pipes separately
+	// use a context both to tear down the children as well as to encapsulate the logger
+	ctx, cancel := context.WithCancel(ctx)
+	ctx = log.WithContext(ctx)
+
 	// run pipes in separate go routines
+	// note that we don't have to explicitly handle context cancellation here as it's handled by the children
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	go func(log zerolog.Logger) {
+	go func() {
+		// enhance logger and store in context
+		log := log.With().Str("direction", "up").Logger()
+		ctx := log.WithContext(ctx)
 		log.Debug().Msg("running up pipe")
-		upPipe.Run(log)
+		err := upPipe.Run(ctx)
+		if err != nil {
+			log.Error().Err(err).Msg("up pipe exited with error")
+		}
 		log.Debug().Msg("up pipe finished")
+		cancel()
 		wg.Done()
-	}(log.With().Str("direction", "up").Logger())
+	}()
 	wg.Add(1)
-	go func(log zerolog.Logger) {
+	go func() {
+		// enhance logger and store in context
+		log := log.With().Str("direction", "down").Logger()
+		ctx := log.WithContext(ctx)
 		log.Debug().Msg("running down pipe")
-		downPipe.Run(log)
+		err := downPipe.Run(ctx)
+		if err != nil {
+			log.Error().Err(err).Msg("down pipe exited with error")
+		}
 		log.Debug().Msg("down pipe finished")
+		cancel()
 		wg.Done()
-	}(log.With().Str("direction", "down").Logger())
+	}()
 	log.Info().Msg("all pipes running")
 
 	// wait for all pipes to complete

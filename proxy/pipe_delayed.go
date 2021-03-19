@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"io"
 	"net"
@@ -28,28 +27,32 @@ func NewDelayedPipe(src net.Conn, dst net.Conn, delay time.Duration) Pipe {
 	return &delayedPipe{src: src, dst: dst, delay: delay}
 }
 
-func (p *delayedPipe) Run(log zerolog.Logger) {
-	log = log.With().Str("func", "delayedPipe.Run").Logger()
+func (p *delayedPipe) Run(ctx context.Context) error {
+	// use the log object from the context with updated fields
+	log := log.Ctx(ctx).With().Str("func", "delayedPipe.Run").Logger()
 
 	// disable deadlines. note that the read routine will later overwrite the source read deadline, but that's ok.
 	err := p.src.SetDeadline(time.Time{})
 	if err != nil {
 		log.Error().Err(err).Msg("error while disabling source connection deadline")
-		return
+		return err
 	}
 	err = p.dst.SetDeadline(time.Time{})
 	if err != nil {
 		log.Error().Err(err).Msg("error while disabling destination connection deadline")
-		return
+		return err
 	}
 
 	// run the reading and writing logic as separate routines
 	// use a context both to tear down the children as well as to encapsulate the logger
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(ctx)
 	ctx = log.WithContext(ctx)
 
 	// set up a deep buffered channel for the read routine to deliver read bytes to the write routine
 	c := make(chan delayedWrite, 1024)
+
+	// remember the last error
+	var lastErr error
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
@@ -57,6 +60,7 @@ func (p *delayedPipe) Run(log zerolog.Logger) {
 		err := p.readRoutine(ctx, c)
 		if err != nil {
 			log.Error().Err(err).Msg("readRoutine exited with error")
+			lastErr = err
 		}
 		cancel()
 		wg.Done()
@@ -66,6 +70,7 @@ func (p *delayedPipe) Run(log zerolog.Logger) {
 		err := p.writeRoutine(ctx, c)
 		if err != nil {
 			log.Error().Err(err).Msg("writeRoutine exited with error")
+			lastErr = err
 		}
 		cancel()
 		wg.Done()
@@ -76,6 +81,8 @@ func (p *delayedPipe) Run(log zerolog.Logger) {
 	wg.Wait()
 	log.Debug().Msg("children finished. exiting.")
 	log.Info().Msg("pipe shutting down")
+
+	return lastErr
 }
 
 // handles the read operation for the delayed pipe. only returns on error or cancelled context.
@@ -83,7 +90,7 @@ func (p *delayedPipe) Run(log zerolog.Logger) {
 // non-nil return value indicates a true error
 func (p *delayedPipe) readRoutine(ctx context.Context, c chan<- delayedWrite) error {
 	// use the log object from the context
-	log := log.Ctx(ctx).With().Str("func", "deplayedPipe.readRoutine").Logger()
+	log := log.Ctx(ctx).With().Str("func", "delayedPipe.readRoutine").Logger()
 
 	// use a static buffer of 1MB
 	bbuf := make([]byte, 1024*1024)
@@ -159,7 +166,7 @@ func (p *delayedPipe) readRoutine(ctx context.Context, c chan<- delayedWrite) er
 // non-nil return value indicates a true error
 func (p *delayedPipe) writeRoutine(ctx context.Context, c <-chan delayedWrite) error {
 	// use the log object from the context
-	log := log.Ctx(ctx).With().Str("func", "deplayedPipe.writeRoutine").Logger()
+	log := log.Ctx(ctx).With().Str("func", "delayedPipe.writeRoutine").Logger()
 
 	// keep track of readTime of last write. this should always increase. this is to guard against the routines in
 	// the readRoutine somehow executing out of order for back-to-back reads
