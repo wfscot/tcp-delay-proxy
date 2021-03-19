@@ -8,11 +8,16 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"time"
 )
 
 func main() {
 	// configure the zerolog for pretty commmand line feedback
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+	// default log level is warn
+	// TODO - adjust to warn
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 
 	// TODO - process command line args
 
@@ -62,7 +67,7 @@ func handleConnection(log zerolog.Logger, clientConn net.Conn) {
 	log.Info().Stringer("upstreamAddr", upstreamConn.RemoteAddr()).Msg("upstream connection established")
 
 	// set up pipes for handling traffic in both directions
-	upPipe := newSimplePipe(clientConn, upstreamConn)
+	upPipe := newDelayedPipe(clientConn, upstreamConn, 1*time.Second)
 	downPipe := newSimplePipe(upstreamConn, clientConn)
 	log.Debug().Msg("pipes established")
 
@@ -82,6 +87,7 @@ func handleConnection(log zerolog.Logger, clientConn net.Conn) {
 		log.Debug().Msg("down pipe finished")
 		wg.Done()
 	}(log.With().Str("direction", "down").Logger())
+	log.Info().Msg("all pipes running")
 
 	// wait for all pipes to complete
 	log.Debug().Msg("waiting for pipes to finish")
