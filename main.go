@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/wfscot/tcp-delay-proxy/proxy"
 	"net"
 	"os"
 	"os/signal"
@@ -67,8 +68,8 @@ func handleConnection(log zerolog.Logger, clientConn net.Conn) {
 	log.Info().Stringer("upstreamAddr", upstreamConn.RemoteAddr()).Msg("upstream connection established")
 
 	// set up pipes for handling traffic in both directions
-	upPipe := newDelayedPipe(clientConn, upstreamConn, 1*time.Second)
-	downPipe := newSimplePipe(upstreamConn, clientConn)
+	upPipe := proxy.NewDelayedPipe(clientConn, upstreamConn, 1*time.Second)
+	downPipe := proxy.NewSimplePipe(upstreamConn, clientConn)
 	log.Debug().Msg("pipes established")
 
 	// run pipes in separate go routines

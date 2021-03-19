@@ -1,4 +1,4 @@
-package main
+package proxy
 
 import (
 	"context"
@@ -24,7 +24,7 @@ type delayedPipe struct {
 	delay time.Duration
 }
 
-func newDelayedPipe(src net.Conn, dst net.Conn, delay time.Duration) pipe {
+func NewDelayedPipe(src net.Conn, dst net.Conn, delay time.Duration) Pipe {
 	return &delayedPipe{src: src, dst: dst, delay: delay}
 }
 

@@ -1,4 +1,4 @@
-package main
+package proxy
 
 import (
 	"context"
@@ -13,7 +13,7 @@ type simplePipe struct {
 	dst net.Conn
 }
 
-func newSimplePipe(src net.Conn, dst net.Conn) pipe {
+func NewSimplePipe(src net.Conn, dst net.Conn) Pipe {
 	return &simplePipe{src: src, dst: dst}
 }
 
