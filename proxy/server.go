@@ -49,14 +49,28 @@ func (s *tcpDelayServer) Run(ctx context.Context) error {
 	defer ln.Close()
 	log.Info().Stringer("addr", ln.Addr()).Msg("listener established")
 
+	// for some reason, the listener is staying open even after the context is cancelled. force it closed.
+	go func() {
+		<-ctx.Done()
+		ln.Close()
+	}()
+
 	i := 0
 	for {
 		i++
+		log := log.With().Int("connNum", i).Logger()
+		log.Debug().Msg("waiting for client connection")
 		clientConn, err := ln.Accept()
 		if err != nil {
-			log.Fatal().Int("connNum", i).Err(err).Msg("error while accepting client connection")
+			// suppress any final error messages if the context has been cancelled
+			if ctx.Err() != nil {
+				return nil
+			}
+			// otherwise, log error and continue
+			log.Error().Err(err).Msg("error while accepting client connection")
+			continue
 		}
-		log := log.With().Int("connNum", i).Stringer("clientAddr", clientConn.RemoteAddr()).Logger()
+		log = log.With().Stringer("clientAddr", clientConn.RemoteAddr()).Logger()
 		log.Info().Msg("accepted client connection")
 
 		// put logger in context
