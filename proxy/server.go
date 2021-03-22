@@ -54,17 +54,17 @@ func (s *tcpDelayServer) Run(ctx context.Context) error {
 		i++
 		clientConn, err := ln.Accept()
 		if err != nil {
-			log.Fatal().Int("connNum", i).Err(err).Msg("error while accepting connection")
+			log.Fatal().Int("connNum", i).Err(err).Msg("error while accepting client connection")
 		}
 		log := log.With().Int("connNum", i).Stringer("clientAddr", clientConn.RemoteAddr()).Logger()
-		log.Info().Msg("accepted connection")
+		log.Info().Msg("accepted client connection")
 
 		// put logger in context
 		ctx := log.WithContext(ctx)
 
 		go func(ctx context.Context) {
 			// set up and run session
-			session := NewDelayedConnection(s.upStaticDelay, s.downStaticDelay, s.upstreamAddr)
+			session := NewDelayedSession(s.upStaticDelay, s.downStaticDelay, s.upstreamAddr)
 			err = session.Run(ctx, clientConn)
 			if err != nil {
 				log.Error().Err(err).Msg("session exited with error")

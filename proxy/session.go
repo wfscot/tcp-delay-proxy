@@ -8,38 +8,38 @@ import (
 	"time"
 )
 
-// defines a generic connection object
-// a connection represents a single proxy server session created in response to a single client connection
-// for now, we just have a single implementation of connection so it's contained in this file.
+// defines a generic proxy session object
+// a session represents a single proxy server session created in response to a single client connection
+// for now, we just have a single implementation of session so it's contained in this file.
 
-type Connection interface {
+type Session interface {
 	Run(ctx context.Context, clientConn net.Conn) error
 }
 
-type connection struct {
+type session struct {
 	upDelay      time.Duration
 	downDelay    time.Duration
 	upstreamAddr string
 }
 
-func NewDelayedConnection(upDelay time.Duration, downDelay time.Duration, upStreamAddr string) Connection {
-	return &connection{
+func NewDelayedSession(upDelay time.Duration, downDelay time.Duration, upStreamAddr string) Session {
+	return &session{
 		upDelay:      upDelay,
 		downDelay:    downDelay,
 		upstreamAddr: upStreamAddr,
 	}
 }
 
-func (c *connection) Run(ctx context.Context, clientConn net.Conn) error {
+func (c *session) Run(ctx context.Context, clientConn net.Conn) error {
 	// use the log object from the context with additional fields
-	log := log.Ctx(ctx).With().Str("func", "connection.Run").Logger()
+	log := log.Ctx(ctx).With().Str("func", "session.Run").Logger()
 
 	// we own the client connection. make sure it's closed.
 	defer clientConn.Close()
 
-	log.Debug().Msg("handling connection")
+	log.Debug().Msg("initiating session")
 
-	// establish upstream connection
+	// establish upstream session
 	log.Debug().Msg("establishing upstream connection")
 	upstreamConn, err := net.Dial("tcp", c.upstreamAddr)
 	if err != nil {
@@ -114,7 +114,7 @@ func (c *connection) Run(ctx context.Context, clientConn net.Conn) error {
 	// wait for all pipes to complete
 	log.Debug().Msg("waiting for pipes to finish")
 	wg.Wait()
-	log.Info().Msg("all pipes finished. closing connection.")
+	log.Info().Msg("all pipes finished. closing session.")
 
 	return lastErr
 }
