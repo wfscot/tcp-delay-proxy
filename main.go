@@ -26,8 +26,9 @@ func main() {
 	getopt.SetParameters("listenPort upstreamAddr")
 	verbosity := getopt.Counter('v', "verbosity. can be used multiple times to further increase.")
 	quiet := getopt.Bool('q', "quiet. do not print any log info. overrides verbosity flag.")
-	upStaticDelay := getopt.DurationLong("upstaticdelay", 'u', 0, "upstream static delay as duration (1s, 100ms, etc.). default 0.")
-	downStaticDelay := getopt.DurationLong("downstaticdelay", 'd', 0, "downstream static delay as duration (1s, 100ms, etc.). default 0.")
+	upDelay := getopt.DurationLong("updelay", 'u', 0, "upstream delay as duration (1s, 100ms, etc.). default 0.")
+	downDelay := getopt.DurationLong("downdelay", 'd', 0, "downstream delay as duration (1s, 100ms, etc.). default 0.")
+	randomizeDelay := getopt.BoolLong("randomizedelay", 'r', "randomize delay using lognormal distribution (mu = 0, sigma = 1.0) around up/down delay")
 
 	// use ParseV2 simply to make sure that we have the v2 version of getopt
 	getopt.ParseV2()
@@ -86,7 +87,7 @@ func main() {
 	}()
 
 	// create the server and run it
-	srv := proxy.NewTcpDelayServer(listenPort, *upStaticDelay, *downStaticDelay, upstreamAddr)
+	srv := proxy.NewTcpDelayServer(listenPort, *upDelay, *downDelay, *randomizeDelay, upstreamAddr)
 	err = srv.Run(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("server exited with error")

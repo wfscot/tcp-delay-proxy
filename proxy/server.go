@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/exp/rand"
+	"gonum.org/v1/gonum/stat/distuv"
 	"net"
 	"time"
 )
@@ -18,18 +20,20 @@ type Server interface {
 }
 
 type tcpDelayServer struct {
-	listenPort      int
-	upStaticDelay   time.Duration
-	downStaticDelay time.Duration
-	upstreamAddr    string
+	listenPort     int
+	upDelay        time.Duration
+	downDelay      time.Duration
+	randomizeDelay bool
+	upstreamAddr   string
 }
 
-func NewTcpDelayServer(listenPort int, upStaticDelay time.Duration, downStaticDelay time.Duration, upstreamAddr string) Server {
+func NewTcpDelayServer(listenPort int, upDelay time.Duration, downDelay time.Duration, randomizeDelay bool, upstreamAddr string) Server {
 	return &tcpDelayServer{
-		listenPort:      listenPort,
-		upStaticDelay:   upStaticDelay,
-		downStaticDelay: downStaticDelay,
-		upstreamAddr:    upstreamAddr,
+		listenPort:     listenPort,
+		upDelay:        upDelay,
+		downDelay:      downDelay,
+		randomizeDelay: randomizeDelay,
+		upstreamAddr:   upstreamAddr,
 	}
 }
 
@@ -55,6 +59,13 @@ func (s *tcpDelayServer) Run(ctx context.Context) error {
 		ln.Close()
 	}()
 
+	// initialize rng
+	logNorm := distuv.LogNormal{
+		Mu:    0,
+		Sigma: 1.0,
+		Src:   rand.NewSource(uint64(time.Now().Unix())),
+	}
+
 	i := 0
 	for {
 		i++
@@ -76,13 +87,21 @@ func (s *tcpDelayServer) Run(ctx context.Context) error {
 		// put logger in context
 		ctx := log.WithContext(ctx)
 
-		go func(ctx context.Context) {
-			// set up and run session
-			session := NewDelayedSession(s.upStaticDelay, s.downStaticDelay, s.upstreamAddr)
+		// calculate up and down delays for this session
+		upDelay := s.upDelay
+		downDelay := s.downDelay
+		if s.randomizeDelay {
+			upDelay = time.Duration(uint64(logNorm.Rand() * float64(uint64(upDelay))))
+			downDelay = time.Duration(uint64(logNorm.Rand() * float64(uint64(downDelay))))
+		}
+
+		// set up and run session in a routine
+		go func(ctx context.Context, upDelay time.Duration, downDelay time.Duration) {
+			session := NewDelayedSession(upDelay, downDelay, s.upstreamAddr)
 			err = session.Run(ctx, clientConn)
 			if err != nil {
 				log.Error().Err(err).Msg("session exited with error")
 			}
-		}(ctx)
+		}(ctx, upDelay, downDelay)
 	}
 }
