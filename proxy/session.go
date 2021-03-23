@@ -13,29 +13,31 @@ import (
 // for now, we just have a single implementation of session so it's contained in this file.
 
 type Session interface {
-	Run(ctx context.Context, clientConn net.Conn) error
+	Run(ctx context.Context) error
 }
 
 type session struct {
 	upDelay      time.Duration
 	downDelay    time.Duration
+	clientConn   net.Conn
 	upstreamAddr string
 }
 
-func NewDelayedSession(upDelay time.Duration, downDelay time.Duration, upStreamAddr string) Session {
+func NewDelayedSession(upDelay time.Duration, downDelay time.Duration, clientConn net.Conn, upStreamAddr string) Session {
 	return &session{
 		upDelay:      upDelay,
 		downDelay:    downDelay,
+		clientConn:   clientConn,
 		upstreamAddr: upStreamAddr,
 	}
 }
 
-func (c *session) Run(ctx context.Context, clientConn net.Conn) error {
+func (c *session) Run(ctx context.Context) error {
 	// use the log object from the context with additional fields
 	log := log.Ctx(ctx).With().Str("func", "session.Run").Logger()
 
 	// we own the client connection. make sure it's closed.
-	defer clientConn.Close()
+	defer c.clientConn.Close()
 
 	log.Debug().Msg("initiating session")
 
@@ -54,17 +56,17 @@ func (c *session) Run(ctx context.Context, clientConn net.Conn) error {
 	var upPipe, downPipe Pipe
 	if c.upDelay.Nanoseconds() == 0 {
 		log.Debug().Msg("using simple up pipe")
-		upPipe = NewSimplePipe(clientConn, upstreamConn)
+		upPipe = NewSimplePipe(c.clientConn, upstreamConn)
 	} else {
 		log.Debug().Dur("upDelay", c.upDelay).Msg("using delayed up pipe")
-		upPipe = NewDelayedPipe(clientConn, upstreamConn, c.upDelay)
+		upPipe = NewDelayedPipe(c.clientConn, upstreamConn, c.upDelay)
 	}
 	if c.downDelay.Nanoseconds() == 0 {
 		log.Debug().Msg("using simple down pipe")
-		downPipe = NewSimplePipe(upstreamConn, clientConn)
+		downPipe = NewSimplePipe(upstreamConn, c.clientConn)
 	} else {
 		log.Debug().Dur("downDelay", c.downDelay).Msg("using delayed down pipe")
-		downPipe = NewDelayedPipe(upstreamConn, clientConn, c.downDelay)
+		downPipe = NewDelayedPipe(upstreamConn, c.clientConn, c.downDelay)
 	}
 	log.Info().Msg("pipes established")
 

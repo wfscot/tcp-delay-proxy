@@ -97,8 +97,8 @@ func (s *tcpDelayServer) Run(ctx context.Context) error {
 
 		// set up and run session in a routine
 		go func(ctx context.Context, upDelay time.Duration, downDelay time.Duration) {
-			session := NewDelayedSession(upDelay, downDelay, s.upstreamAddr)
-			err = session.Run(ctx, clientConn)
+			session := NewDelayedSession(upDelay, downDelay, clientConn, s.upstreamAddr)
+			err = session.Run(ctx)
 			if err != nil {
 				log.Error().Err(err).Msg("session exited with error")
 			}
