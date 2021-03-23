@@ -66,6 +66,17 @@ func (s *tcpDelayServer) Run(ctx context.Context) error {
 		Src:   rand.NewSource(uint64(time.Now().Unix())),
 	}
 
+	// warn if delays are unreasonably small
+	// this is totally arbitrary, but my understanding is that time.Sleep takes several hundred microseconds. thus, if
+	// the user is specifying delays less than 1ms, they might not be getting the result they think they are as
+	// time.Sleep merely guarantees sleeping *at least* the specified duration.
+	if s.upDelay != 0 && s.upDelay.Milliseconds() == 0 {
+		log.Warn().Dur("upDelay", s.upDelay).Msg("upstream delay less than 1ms. actual delay might be longer. be careful.")
+	}
+	if s.downDelay != 0 && s.downDelay.Milliseconds() == 0 {
+		log.Warn().Dur("downDelay", s.downDelay).Msg("downstream delay less than 1ms. actual delay might be longer. be careful.")
+	}
+
 	i := 0
 	for {
 		i++
