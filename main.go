@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"strconv"
+
 	"github.com/pborman/getopt/v2"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/wfscot/tcp-delay-proxy/proxy"
-	"os"
-	"os/signal"
-	"strconv"
 )
 
 func main() {
@@ -42,13 +43,13 @@ func main() {
 	}
 
 	// parse listenPort
-	listenPort64, err := strconv.ParseInt(args[0], 10, 16)
+	listenPort64, err := strconv.ParseUint(args[0], 10, 16)
 	if err != nil {
 		fmt.Printf("error: invalid int for listenPort (got %s)\n", args[0])
 		getopt.Usage()
 		os.Exit(1)
 	}
-	listenPort := int(listenPort64)
+	listenPort := uint16(listenPort64)
 
 	// parse upstreamAddr
 	upstreamAddr := args[1]

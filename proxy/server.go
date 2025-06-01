@@ -3,11 +3,12 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"net"
+	"time"
+
 	"github.com/rs/zerolog/log"
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/stat/distuv"
-	"net"
-	"time"
 )
 
 // defines a generic proxy server object
@@ -20,14 +21,14 @@ type Server interface {
 }
 
 type tcpDelayServer struct {
-	listenPort     int
+	listenPort     uint16
 	upDelay        time.Duration
 	downDelay      time.Duration
 	randomizeDelay bool
 	upstreamAddr   string
 }
 
-func NewTcpDelayServer(listenPort int, upDelay time.Duration, downDelay time.Duration, randomizeDelay bool, upstreamAddr string) Server {
+func NewTcpDelayServer(listenPort uint16, upDelay time.Duration, downDelay time.Duration, randomizeDelay bool, upstreamAddr string) Server {
 	return &tcpDelayServer{
 		listenPort:     listenPort,
 		upDelay:        upDelay,
